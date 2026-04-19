@@ -1,0 +1,10 @@
+streamlit
+pandas
+numpy
+akshare
+baostock
+yfinance
+efinance
+plotly
+requests
+schedule
