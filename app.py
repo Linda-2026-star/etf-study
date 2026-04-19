@@ -8,11 +8,10 @@ from signal_engine import SignalEngine
 from data_fetcher import DataFetcher
 from etf_pool import ETF_POOL
 from market_analyzer import MarketStyleAnalyzer
-from ui_components import inject_global_css, bottom_navigation, metric_card, display_market_analysis
+from ui_components import inject_global_css, metric_card, display_market_analysis
 
 # ---------- 页面配置 ----------
 st.set_page_config(page_title="ETF 右侧波段", page_icon="📊", layout="wide")
-
 
 # ---------- 初始化 Session State ----------
 def init_session_state():
@@ -29,25 +28,21 @@ def init_session_state():
         if key not in st.session_state:
             st.session_state[key] = val
 
-
 init_session_state()
 
 # ---------- 应用全局主题 ----------
 inject_global_css(st.session_state.theme_mode)
-
 
 # ---------- 数据获取（缓存）----------
 @st.cache_data(ttl=300)
 def cached_fetch_history(code, days=200):
     return DataFetcher().fetch_history(code, days)
 
-
 @st.cache_data(ttl=60)
 def cached_fetch_realtime(watchlist_tuple):
     return DataFetcher().fetch_realtime(list(watchlist_tuple))
 
-
-# ---------- 调仓建议生成（简化版）----------
+# ---------- 调仓建议生成 ----------
 def generate_trade_advice(signal: dict, current_shares: int, params: Dict, capital: float = 100000) -> str:
     pos_level = signal['position']
     action = signal['action']
@@ -75,17 +70,26 @@ def generate_trade_advice(signal: dict, current_shares: int, params: Dict, capit
     else:
         return f"⚪ 继续持有 {current_shares} 股"
 
-
-# ---------- 侧边栏：仅用于全局配置（如自选池）----------
+# ---------- 侧边栏：页面导航与全局设置 ----------
 with st.sidebar:
+    st.header("📍 导航")
+    page = st.radio(
+        "选择页面",
+        ["市场分析", "自选持仓", "寻找机会", "设置"],
+        index=["市场分析", "自选持仓", "寻找机会", "设置"].index(st.session_state.current_page)
+    )
+    if page != st.session_state.current_page:
+        st.session_state.current_page = page
+        st.rerun()
+
+    st.divider()
     st.header("⚙️ 全局设置")
     default_list = "512890,510300,513100,588000,159876"
     watchlist_input = st.text_area("自选 ETF 代码", value=default_list)
     watchlist_input = watchlist_input.replace("，", ",")
     watchlist = [c.strip() for c in watchlist_input.split(",") if c.strip()]
 
-    st.divider()
-    if st.button("🔄 刷新所有数据"):
+    if st.button("🔄 刷新所有数据", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
 
@@ -94,7 +98,6 @@ market_info = st.session_state.market_style
 params = market_info['params']
 if st.session_state.manual_style_override:
     from market_analyzer import MarketStyleAnalyzer
-
     params = MarketStyleAnalyzer()._get_style_params(st.session_state.get('final_style', market_info['style']))
 final_style = st.session_state.get('final_style', market_info['style'])
 
@@ -173,6 +176,8 @@ elif current_page == "设置":
         st.session_state.theme_mode = theme
         st.rerun()
 
+    st.divider()
+
     # 策略风格覆盖
     st.subheader("策略风格")
     manual = st.checkbox("手动覆盖风格", value=st.session_state.manual_style_override)
@@ -184,6 +189,3 @@ elif current_page == "设置":
             st.rerun()
     else:
         st.session_state.manual_style_override = False
-
-# ---------- 底部导航栏 ----------
-bottom_navigation()
