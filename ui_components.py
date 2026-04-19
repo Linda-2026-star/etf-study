@@ -1,3 +1,4 @@
+
 import streamlit as st
 
 
@@ -247,4 +248,3 @@ def display_market_analysis(market_info, final_style, params):
         st.write(f"量比阈值: >{params['vol_ratio']}倍")
         st.write(f"波动率上限: <{params['atr_max']}%")
         st.write(f"试探仓: {params['test_ratio'] * 100:.0f}%")
-        st.write(f"主升仓: {params['main_ratio'] * 100:.0f}%")
