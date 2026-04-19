@@ -11,6 +11,7 @@ from etf_pool import ETF_POOL
 from market_analyzer import MarketStyleAnalyzer
 from ui_components import inject_global_css, metric_card, display_market_analysis
 
+
 # ---------- 页面配置 ----------
 st.set_page_config(page_title="ETF 右侧波段", page_icon="📊", layout="wide")
 
@@ -155,6 +156,7 @@ elif current_page == "自选持仓":
 elif current_page == "寻找机会":
     st.header("寻找交易机会")
 
+    # ---------- 全市场扫描 ----------
     if st.button("🚀 开始全市场扫描", use_container_width=True):
         with st.spinner("扫描中..."):
             results = SignalEngine.scan_all_etfs(ETF_POOL, DataFetcher(), params=params)
@@ -167,6 +169,88 @@ elif current_page == "寻找机会":
         st.dataframe(df[['code', 'name', 'category', 'close', 'vol_ratio', 'score']], use_container_width=True)
     else:
         st.info("暂无符合条件的 ETF，可点击上方按钮扫描。")
+
+    st.divider()
+
+    # ---------- 自迭代优化（可折叠） ----------
+    with st.expander("🔄 自迭代优化", expanded=False):
+        from feedback_loop import TradeLogger, PerformanceEvaluator, ParameterOptimizer, StrategyVersionManager
+
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("📊 生成绩效报告", use_container_width=True):
+                logger = TradeLogger()
+                trades_df = logger.get_closed_trades()
+                if not trades_df.empty:
+                    evaluator = PerformanceEvaluator()
+                    metrics = evaluator.calculate_metrics(trades_df)
+                    st.session_state.performance_metrics = metrics
+                    st.success("报告生成成功")
+                else:
+                    st.warning("暂无交易记录，无法生成报告。")
+
+        with col2:
+            if st.button("🔍 参数优化建议", use_container_width=True):
+                with st.spinner("正在搜索最优参数（约需1分钟）..."):
+                    optimizer = ParameterOptimizer(DataFetcher(), ETF_POOL)
+                    param_ranges = {
+                        'vol_ratio': [1.0, 1.2, 1.5],
+                        'atr_max': [2.5, 3.0, 3.5],
+                        'test_ratio': [0.10, 0.12, 0.15],
+                    }
+                    results = optimizer.grid_search(param_ranges)
+                    if results:
+                        st.session_state.optimization_results = results[:5]
+                        st.success(f"优化完成，找到 {len(results)} 组有效参数")
+                    else:
+                        st.warning("优化未产生有效结果，请检查数据源或扩大回测范围。")
+
+        # 显示绩效报告
+        if st.session_state.get('performance_metrics'):
+            st.subheader("📈 当前策略绩效")
+            metrics = st.session_state.performance_metrics
+            cols = st.columns(4)
+            cols[0].metric("总收益率", f"{metrics['total_return']}%")
+            cols[1].metric("最大回撤", f"{metrics['max_drawdown']}%")
+            cols[2].metric("胜率", f"{metrics['win_rate']}%")
+            cols[3].metric("夏普比率", f"{metrics['sharpe_ratio']}")
+
+        # 显示优化建议
+        if st.session_state.get('optimization_results'):
+            st.subheader("🔧 参数优化建议（Top 3）")
+            for i, r in enumerate(st.session_state.optimization_results[:3]):
+                with st.container():
+                    st.markdown(f"**方案 {i + 1}** · 综合评分: {r['score']}")
+                    p = r['params']
+                    st.caption(f"量比>{p['vol_ratio']} | 波动<{p['atr_max']}% | 试探仓{p['test_ratio'] * 100:.0f}%")
+                    st.caption(f"回测收益: {r['total_return']}% | 回撤: {r['max_drawdown']}% | 胜率: {r['win_rate']}%")
+                    if st.button(f"应用方案 {i + 1}", key=f"apply_opt_{i}"):
+                        st.session_state.manual_style_override = True
+                        st.session_state.final_style = "自定义"
+                        st.session_state.custom_params = p
+                        st.rerun()
+
+        # 版本管理
+        st.divider()
+        st.subheader("💾 策略版本管理")
+        manager = StrategyVersionManager()
+        versions = manager.versions
+        if versions:
+            df_versions = pd.DataFrame(versions)
+            st.dataframe(df_versions[['version_id', 'timestamp', 'metrics', 'is_active']], use_container_width=True)
+            if st.button("激活历史最佳版本"):
+                best = manager.get_best_version()
+                if best:
+                    manager.set_active(best['version_id'])
+                    st.success(f"已激活版本 V{best['version_id']}")
+                    st.rerun()
+        else:
+            st.info("暂无保存的版本。")
+
+        if st.button("💾 保存当前参数为新版本"):
+            manager.save_version(params, st.session_state.get('performance_metrics', {}), f"{final_style}风格")
+            st.success("版本已保存")
+            st.rerun()
 
 elif current_page == "设置":
     st.header("应用设置")
