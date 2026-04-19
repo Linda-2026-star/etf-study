@@ -1,4 +1,3 @@
-
 import streamlit as st
 
 
@@ -22,24 +21,18 @@ def inject_global_css(theme_mode: str = "dark"):
 
     st.markdown(f"""
     <style>
-        /* 全局样式 */
+        /* 全局容器 */
         .stApp {{
             background-color: {bg_color};
-            padding-bottom: 80px;
         }}
 
-        /* 隐藏默认的 Streamlit 元素 */
-        header[data-testid="stHeader"] {{
-            background-color: transparent;
+        /* 侧边栏样式 */
+        section[data-testid="stSidebar"] {{
+            background-color: {card_bg} !important;
+            border-right: 1px solid {border_color} !important;
         }}
-        div[data-testid="stToolbar"] {{
-            display: none;
-        }}
-        div[data-testid="stDecoration"] {{
-            display: none;
-        }}
-        footer {{
-            display: none;
+        section[data-testid="stSidebar"] * {{
+            color: {text_primary} !important;
         }}
 
         /* 卡片样式 */
@@ -75,46 +68,15 @@ def inject_global_css(theme_mode: str = "dark"):
             font-weight: 500;
         }}
 
-        /* 底部导航栏 */
-        .bottom-nav {{
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background-color: {card_bg};
-            border-top: 1px solid {border_color};
-            padding: 8px 16px;
-            display: flex;
-            justify-content: space-around;
-            align-items: center;
-            z-index: 999;
-            height: 70px;
+        /* 标题 */
+        h1, h2, h3 {{
+            color: {text_primary} !important;
         }}
-        .nav-item {{
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: {text_secondary};
-            font-size: 12px;
-            transition: color 0.2s;
-            cursor: pointer;
-            padding: 8px 16px;
-            border-radius: 40px;
-            background-color: transparent;
-            border: none;
-        }}
-        .nav-item.active {{
-            color: {accent_color};
-            background-color: {accent_color}20;
-            font-weight: 500;
-        }}
-        .nav-item i {{
-            font-size: 22px;
-            margin-bottom: 4px;
+        p, span, div {{
+            color: {text_primary};
         }}
 
-        /* 表格样式优化 */
+        /* 表格样式 */
         .stDataFrame {{
             border: none !important;
         }}
@@ -144,14 +106,6 @@ def inject_global_css(theme_mode: str = "dark"):
             box-shadow: 0 8px 16px rgba(255, 125, 67, 0.3);
         }}
 
-        /* 标题 */
-        h1, h2, h3 {{
-            color: {text_primary} !important;
-        }}
-        p, span, div {{
-            color: {text_primary};
-        }}
-
         /* 选择框 */
         .stSelectbox > div > div {{
             background-color: {card_bg} !important;
@@ -178,48 +132,6 @@ def metric_card(label, value, delta=None, delta_positive=True):
     """, unsafe_allow_html=True)
 
 
-def bottom_navigation():
-    """渲染底部导航栏，并处理页面切换逻辑。"""
-    if "current_page" not in st.session_state:
-        st.session_state.current_page = "市场分析"
-
-    pages = ["市场分析", "自选持仓", "寻找机会", "设置"]
-
-    # 创建导航栏 HTML
-    nav_html = '<div class="bottom-nav">'
-    for page in pages:
-        active_class = "active" if st.session_state.current_page == page else ""
-        nav_html += f'''
-        <div class="nav-item {active_class}" id="nav-{page}">
-            <i class="material-icons">{get_icon(page)}</i>
-            <span>{page}</span>
-        </div>
-        '''
-    nav_html += '</div>'
-
-    st.markdown(nav_html, unsafe_allow_html=True)
-
-    # JavaScript 处理点击切换（简化版：通过隐藏的 Streamlit 按钮实现）
-    # 为了代码简洁，这里我们用一个更简单的方法：在页面顶部用 st.radio 水平显示（并隐藏它），通过 session_state 同步。
-    # 但为了视觉完美，我们通过 columns 隐藏按钮来模拟点击。
-    cols = st.columns(len(pages))
-    for i, page in enumerate(pages):
-        with cols[i]:
-            if st.button(page, key=f"nav_{page}", use_container_width=True):
-                st.session_state.current_page = page
-                st.rerun()
-
-
-def get_icon(page_name):
-    icons = {
-        "市场分析": "📊",
-        "自选持仓": "📈",
-        "寻找机会": "🔍",
-        "设置": "⚙️"
-    }
-    return icons.get(page_name, "📄")
-
-
 def display_market_analysis(market_info, final_style, params):
     """市场分析页面内容。"""
     st.header("市场环境评估")
@@ -228,7 +140,8 @@ def display_market_analysis(market_info, final_style, params):
     col1, col2, col3 = st.columns(3)
     with col1:
         metric_card("估值分位", f"{market_info['valuation_level']:.1f}%",
-                    delta="偏高" if market_info['valuation_level'] > 70 else "正常", delta_positive=False)
+                    delta="偏高" if market_info['valuation_level'] > 70 else "正常",
+                    delta_positive=False)
     with col2:
         metric_card("VIX 分位", f"{market_info['vix_level']:.1f}%",
                     delta="恐慌" if market_info['vix_level'] > 70 else "冷静")
@@ -248,3 +161,4 @@ def display_market_analysis(market_info, final_style, params):
         st.write(f"量比阈值: >{params['vol_ratio']}倍")
         st.write(f"波动率上限: <{params['atr_max']}%")
         st.write(f"试探仓: {params['test_ratio'] * 100:.0f}%")
+        st.write(f"主升仓: {params['main_ratio'] * 100:.0f}%")
